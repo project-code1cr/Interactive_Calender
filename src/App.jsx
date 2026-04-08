@@ -479,6 +479,10 @@ export default function App() {
     return endDate && date && date.getTime() === endDate.getTime();
   }
 
+  function isToday(date) {
+    return date && date.getTime() === today.getTime();
+  }
+
   function saveSpecificNote(value) {
     if (!activeNoteKey) {
       return;
@@ -622,6 +626,7 @@ export default function App() {
                 const start = isStart(cell.date);
                 const end = isEnd(cell.date);
                 const selected = activeDate && activeDate.getTime() === cell.date.getTime();
+                const todayCell = isToday(cell.date);
                 const noteKey = formatISO(cell.date);
                 const hasNote = Boolean(specificNotes[noteKey]?.trim());
                 const dayOfWeek = cell.date.getDay();
@@ -646,6 +651,7 @@ export default function App() {
                       start ? 'range-start' : '',
                       end ? 'range-end' : '',
                       selected ? 'active' : '',
+                      todayCell ? 'today' : '',
                       isWeekend ? 'weekend' : '',
                       isSunday ? 'sunday' : '',
                       holiday ? 'holiday' : ''
