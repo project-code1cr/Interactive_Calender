@@ -188,10 +188,14 @@ body {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
+  min-width: 0;
 }
 
 .holiday-panel-head h3 {
   margin: 0;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.1;
 }
 
 .holiday-panel-head select {
@@ -202,6 +206,10 @@ body {
   color: #2d3748;
   font: inherit;
   font-size: 0.76rem;
+  flex: 0 0 90px;
+  width: 90px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .holiday-list {
@@ -584,5 +592,14 @@ body {
 
   .holiday-item-copy strong {
     font-size: 0.72rem;
+  }
+
+  .holiday-panel-head {
+    flex-wrap: wrap;
+  }
+
+  .holiday-panel-head select {
+    flex: 1 1 100%;
+    width: 100%;
   }
 }

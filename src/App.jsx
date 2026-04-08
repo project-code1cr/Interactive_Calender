@@ -288,10 +288,12 @@ export default function App() {
   const [monthlyNote, setMonthlyNote] = useState('');
   const [specificNotes, setSpecificNotes] = useState({});
   const [holidayReligionFilter, setHolidayReligionFilter] = useState('All');
+  const [isStorageHydrated, setIsStorageHydrated] = useState(false);
 
   const storageKey = `${year}-${month + 1}`;
 
   useEffect(() => {
+    setIsStorageHydrated(false);
     const raw = localStorage.getItem(`calendar-notes-${storageKey}`);
     if (raw) {
       try {
@@ -306,9 +308,15 @@ export default function App() {
       setMonthlyNote('');
       setSpecificNotes({});
     }
+
+    setIsStorageHydrated(true);
   }, [storageKey]);
 
   useEffect(() => {
+    if (!isStorageHydrated) {
+      return;
+    }
+
     localStorage.setItem(
       `calendar-notes-${storageKey}`,
       JSON.stringify({
@@ -316,7 +324,7 @@ export default function App() {
         specificNotes
       })
     );
-  }, [storageKey, monthlyNote, specificNotes]);
+  }, [storageKey, monthlyNote, specificNotes, isStorageHydrated]);
 
   useEffect(() => {
     function releaseDrag() {
