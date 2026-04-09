@@ -218,7 +218,23 @@ function buildHolidayMapForYear(year) {
 }
 
 function formatISO(date) {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseISODate(isoDate) {
+  const [yearStr, monthStr, dayStr] = isoDate.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day);
 }
 
 function atMidnight(date) {
@@ -270,6 +286,75 @@ function orderedRange(start, end) {
   return start <= end ? [start, end] : [end, start];
 }
 
+function buildRangeKey(start, end) {
+  if (!start || !end) {
+    return null;
+  }
+
+  return `${formatISO(start)}__${formatISO(end)}`;
+}
+
+function buildSavedRangeDateKeySet(rangeNotes) {
+  const dateKeys = new Set();
+
+  Object.entries(rangeNotes).forEach(([rangeKey, note]) => {
+    if (!note || !note.trim()) {
+      return;
+    }
+
+    const [startIso, endIso] = rangeKey.split('__');
+    if (!startIso || !endIso) {
+      return;
+    }
+
+    const startDate = parseISODate(startIso);
+    const endDate = parseISODate(endIso);
+    if (!startDate || !endDate) {
+      return;
+    }
+
+    const start = atMidnight(startDate);
+    const end = atMidnight(endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return;
+    }
+
+    const [from, to] = start <= end ? [start, end] : [end, start];
+    const cursor = new Date(from);
+    while (cursor <= to) {
+      dateKeys.add(formatISO(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  });
+
+  return dateKeys;
+}
+
+function parseRangeKey(rangeKey) {
+  const [startIso, endIso] = rangeKey.split('__');
+  if (!startIso || !endIso) {
+    return null;
+  }
+
+  const startDate = parseISODate(startIso);
+  const endDate = parseISODate(endIso);
+  if (!startDate || !endDate) {
+    return null;
+  }
+
+  const start = atMidnight(startDate);
+  const end = atMidnight(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return null;
+  }
+
+  return start <= end ? { start, end } : { start: end, end: start };
+}
+
+function rangesOverlap(startA, endA, startB, endB) {
+  return startA <= endB && startB <= endA;
+}
+
 export default function App() {
   const today = useMemo(() => atMidnight(new Date()), []);
   const [year, setYear] = useState(today.getFullYear());
@@ -287,6 +372,7 @@ export default function App() {
 
   const [monthlyNote, setMonthlyNote] = useState('');
   const [specificNotes, setSpecificNotes] = useState({});
+  const [rangeNotes, setRangeNotes] = useState({});
   const [holidayReligionFilter, setHolidayReligionFilter] = useState('All');
   const [isStorageHydrated, setIsStorageHydrated] = useState(false);
 
@@ -300,13 +386,16 @@ export default function App() {
         const parsed = JSON.parse(raw);
         setMonthlyNote(parsed.monthlyNote || '');
         setSpecificNotes(parsed.specificNotes || {});
+        setRangeNotes(parsed.rangeNotes || {});
       } catch {
         setMonthlyNote('');
         setSpecificNotes({});
+        setRangeNotes({});
       }
     } else {
       setMonthlyNote('');
       setSpecificNotes({});
+      setRangeNotes({});
     }
 
     setIsStorageHydrated(true);
@@ -321,10 +410,11 @@ export default function App() {
       `calendar-notes-${storageKey}`,
       JSON.stringify({
         monthlyNote,
-        specificNotes
+        specificNotes,
+        rangeNotes
       })
     );
-  }, [storageKey, monthlyNote, specificNotes, isStorageHydrated]);
+  }, [storageKey, monthlyNote, specificNotes, rangeNotes, isStorageHydrated]);
 
   useEffect(() => {
     function releaseDrag() {
@@ -371,9 +461,32 @@ export default function App() {
     }
   }, [holidayReligions, holidayReligionFilter]);
   const [rangeStart, rangeEnd] = orderedRange(startDate, endDate);
+  const activeRangeKey = buildRangeKey(rangeStart, rangeEnd);
+  const activeRangeNote = activeRangeKey ? rangeNotes[activeRangeKey] || '' : '';
+  const hasSavedActiveRange = Boolean(activeRangeKey && rangeNotes[activeRangeKey]?.trim());
+  const savedRangeDateKeys = useMemo(() => buildSavedRangeDateKeySet(rangeNotes), [rangeNotes]);
+  const hasSavedOverlapInSelection = useMemo(() => {
+    if (!rangeStart || !rangeEnd) {
+      return false;
+    }
+
+    return Object.entries(rangeNotes).some(([rangeKey, note]) => {
+      if (!note || !note.trim()) {
+        return false;
+      }
+
+      const parsed = parseRangeKey(rangeKey);
+      if (!parsed) {
+        return false;
+      }
+
+      return rangesOverlap(parsed.start, parsed.end, rangeStart, rangeEnd);
+    });
+  }, [rangeNotes, rangeStart, rangeEnd]);
 
   const activeNoteKey = activeDate ? formatISO(activeDate) : null;
   const activeNote = activeNoteKey ? specificNotes[activeNoteKey] || '' : '';
+  const hasSavedActiveDay = Boolean(activeNoteKey && specificNotes[activeNoteKey]?.trim());
 
   function shiftMonth(direction) {
     const moved = new Date(year, month + direction, 1);
@@ -460,6 +573,17 @@ export default function App() {
     }
 
     const normalized = atMidnight(date);
+    const clickedSameSingleSelection =
+      activeDate &&
+      startDate &&
+      !endDate &&
+      activeDate.getTime() === normalized.getTime() &&
+      startDate.getTime() === normalized.getTime();
+
+    if (clickedSameSingleSelection) {
+      clearSelection();
+      return;
+    }
 
     if (!startDate || (startDate && endDate)) {
       setStartDate(normalized);
@@ -502,11 +626,81 @@ export default function App() {
     }));
   }
 
+  function deleteActiveDayMemory() {
+    if (!activeNoteKey) {
+      return;
+    }
+
+    setSpecificNotes((prev) => {
+      if (!prev[activeNoteKey]) {
+        return prev;
+      }
+
+      const next = { ...prev };
+      delete next[activeNoteKey];
+      return next;
+    });
+  }
+
+  function saveRangeNote(value) {
+    if (!activeRangeKey) {
+      return;
+    }
+
+    setRangeNotes((prev) => {
+      if (!value.trim()) {
+        const next = { ...prev };
+        delete next[activeRangeKey];
+        return next;
+      }
+
+      return {
+        ...prev,
+        [activeRangeKey]: value
+      };
+    });
+  }
+
   function jumpToDate(date) {
     const normalized = atMidnight(date);
     setActiveDate(normalized);
     setStartDate(normalized);
     setEndDate(null);
+  }
+
+  function deleteActiveRangeMemory() {
+    if (!rangeStart || !rangeEnd) {
+      return;
+    }
+
+    setRangeNotes((prev) => {
+      let removedAny = false;
+      const next = {};
+
+      Object.entries(prev).forEach(([rangeKey, note]) => {
+        const parsed = parseRangeKey(rangeKey);
+        const shouldRemove =
+          parsed && note && note.trim() && rangesOverlap(parsed.start, parsed.end, rangeStart, rangeEnd);
+
+        if (shouldRemove) {
+          removedAny = true;
+          return;
+        }
+
+        next[rangeKey] = note;
+      });
+
+      return removedAny ? next : prev;
+    });
+  }
+
+  function clearSelection() {
+    setStartDate(null);
+    setEndDate(null);
+    setActiveDate(null);
+    setIsDragging(false);
+    setDragAnchor(null);
+    setDragHasMoved(false);
   }
 
   const rangeLabel =
@@ -527,7 +721,7 @@ export default function App() {
           </div>
           <div className="month-progress" role="group" aria-label="Month progress indicator">
             {MONTH_NAMES.map((monthName, index) => {
-              const isPassed = index <= month;
+              const isPassed = index < month;
               const isCurrent = index === month;
 
               return (
@@ -605,6 +799,39 @@ export default function App() {
               placeholder="Attach a note for the selected day..."
               disabled={!activeDate}
             />
+            <div className="day-actions">
+              <button
+                type="button"
+                className="delete-day-memory-btn"
+                onClick={deleteActiveDayMemory}
+                disabled={!hasSavedActiveDay}
+              >
+                Delete Day Memory
+              </button>
+            </div>
+
+            <h3>Selected Range Note</h3>
+            <p className="helper-text">
+              {activeRangeKey
+                ? `${formatISO(rangeStart)} to ${formatISO(rangeEnd)}${hasSavedActiveRange ? ' (saved)' : ' (not saved yet)'}`
+                : 'Select a full date range to attach a range note'}
+            </p>
+            <textarea
+              value={activeRangeNote}
+              onChange={(event) => saveRangeNote(event.target.value)}
+              placeholder="Attach a note for the selected range..."
+              disabled={!activeRangeKey}
+            />
+            <div className="range-actions">
+              <button
+                type="button"
+                className="delete-range-memory-btn"
+                onClick={deleteActiveRangeMemory}
+                disabled={!hasSavedOverlapInSelection}
+              >
+                Delete Range Memory (Selected Dates)
+              </button>
+            </div>
           </div>
 
           <div className="grid-column">
@@ -617,6 +844,14 @@ export default function App() {
                 Next
               </button>
             </div>
+            <button
+              type="button"
+              className="clear-range-btn"
+              onClick={clearSelection}
+              disabled={!startDate && !endDate && !activeDate}
+            >
+              Clear Selected Range
+            </button>
 
             <div className="day-labels" aria-hidden="true">
               {DAY_LABELS.map((day) => (
@@ -637,10 +872,12 @@ export default function App() {
                 const todayCell = isToday(cell.date);
                 const noteKey = formatISO(cell.date);
                 const hasNote = Boolean(specificNotes[noteKey]?.trim());
+                const hasSavedRange = savedRangeDateKeys.has(noteKey);
                 const dayOfWeek = cell.date.getDay();
                 const isSunday = dayOfWeek === 0;
                 const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                 const holiday = holidayMap[formatISO(cell.date)] || null;
+                const hasRangeDot = Boolean(rangeStart && rangeEnd && inRange);
                 const hoverInfo = holiday
                   ? `${holiday.name}\nReligion: ${holiday.religion}\n${holiday.description}`
                   : isSunday
@@ -660,6 +897,7 @@ export default function App() {
                       end ? 'range-end' : '',
                       selected ? 'active' : '',
                       todayCell ? 'today' : '',
+                      hasSavedRange ? 'saved-range' : '',
                       isWeekend ? 'weekend' : '',
                       isSunday ? 'sunday' : '',
                       holiday ? 'holiday' : ''
@@ -677,6 +915,8 @@ export default function App() {
                     <span className="day-number">{cell.dayNumber}</span>
                     {holiday ? <span className="holiday-pill">{holiday.name}</span> : null}
                     {!holiday && isSunday ? <span className="sunday-mark">Sun</span> : null}
+                    {hasSavedRange ? <span className="range-memory-dot" aria-hidden="true" /> : null}
+                    {hasRangeDot ? <span className="range-dot" aria-hidden="true" /> : null}
                     {hasNote ? <span className="note-dot" aria-hidden="true" /> : null}
                   </button>
                 );

@@ -87,7 +87,9 @@ body {
 }
 
 .month-dot.current {
-  box-shadow: 0 0 0 3px rgba(31, 37, 49, 0.14);
+  background: #1f9f62;
+  border-color: #1f9f62;
+  box-shadow: 0 0 0 3px rgba(31, 159, 98, 0.2);
 }
 
 .ring {
@@ -305,6 +307,50 @@ body {
   cursor: not-allowed;
 }
 
+.range-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.day-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.delete-day-memory-btn {
+  border: 1px solid #ebc5c5;
+  background: #fff6f6;
+  color: #9c2f2f;
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 5px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.delete-day-memory-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.delete-range-memory-btn {
+  border: 1px solid #ebc5c5;
+  background: #fff6f6;
+  color: #9c2f2f;
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 5px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.delete-range-memory-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .grid-column {
   background: #fff;
   border-radius: 12px;
@@ -342,6 +388,30 @@ body {
 .toolbar button:hover {
   background: #24344a;
   transform: translateY(-1px);
+}
+
+.clear-range-btn {
+  border: 1px solid #d6dbe7;
+  background: #f9fafc;
+  color: #3a455b;
+  font: inherit;
+  font-size: 0.76rem;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin: 0 0 8px auto;
+  display: block;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.clear-range-btn:hover {
+  background: #eef2f8;
+  border-color: #c8d0df;
+}
+
+.clear-range-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .day-labels,
@@ -401,19 +471,18 @@ body {
 }
 
 .day-cell.in-range {
-  background: var(--accent-soft);
-  color: #0b4d64;
+  background: #ddf7e8;
+  color: #0f5a37;
 }
 
 .day-cell.range-start,
 .day-cell.range-end {
-  background: var(--accent);
+  background: #1f9f62;
   color: #fff;
 }
 
 .day-cell.active {
-  outline: 2px dashed #132f40;
-  outline-offset: 2px;
+  outline: none;
 }
 
 .day-cell.today {
@@ -449,6 +518,29 @@ body {
 .day-cell.holiday {
   border: 1px solid #f7b14e;
   background: #fff4e5;
+}
+
+.day-cell.weekend.in-range,
+.day-cell.sunday.in-range {
+  background: #ddf7e8;
+  color: #0f5a37;
+}
+
+.day-cell.holiday.in-range {
+  background: #d4f4e4;
+  border-color: #6cbf96;
+  color: #0f5a37;
+}
+
+.day-cell.weekend.range-start,
+.day-cell.weekend.range-end,
+.day-cell.sunday.range-start,
+.day-cell.sunday.range-end,
+.day-cell.holiday.range-start,
+.day-cell.holiday.range-end {
+  background: #1f9f62;
+  border-color: #1f9f62;
+  color: #fff;
 }
 
 .holiday-pill {
@@ -490,6 +582,32 @@ body {
   background: #ff9f1c;
   transform: none;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);
+}
+
+.range-dot {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1f9f62;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);
+}
+
+.range-memory-dot {
+  position: absolute;
+  bottom: 6px;
+  left: 17px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);
+}
+
+.day-cell.saved-range {
+  box-shadow: none;
 }
 
 @keyframes rise-in {
